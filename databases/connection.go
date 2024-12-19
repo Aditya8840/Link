@@ -30,7 +30,7 @@ type Manager interface {
 	GetAndIncCounter() (int64, error)
 }
 
-func connect() {
+func Connect() {
 	err := godotenv.Load(".env")
 	if err != nil {
         log.Fatalf("Error loading .env file: %s", err)
