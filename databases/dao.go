@@ -42,14 +42,28 @@ func (mgr *manager) evictIfNeeded() error {
 
 	if size >= mgr.maxCacheSize {
 		numToRemove := int(float64(size) * 0.2)
-
 		keys, err := mgr.redis_client.Keys(mgr.ctx, "*").Result()
 		if err != nil {
 			return err
 		}
 
 		for i := 0; i < numToRemove && i < len(keys); i++ {
-			mgr.redis_client.Del(mgr.ctx, keys[i])
+			if keys[i] == constant.COUNTER_KEY_REDIS {
+				continue
+			}
+			_, err := mgr.redis_client.Del(mgr.ctx, keys[i]).Result()
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
+}
+
+func (mgr *manager) GetAndIncCounter() (int64, error) {
+	count, err := mgr.redis_client.Incr(mgr.ctx, constant.COUNTER_KEY_REDIS).Result()
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }

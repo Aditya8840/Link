@@ -27,6 +27,7 @@ type Manager interface {
 	Insert(*types.URL) error
 	GetOriginalURL(string) (string, error)
 	evictIfNeeded() error
+	GetAndIncCounter() (int64, error)
 }
 
 func connect() {

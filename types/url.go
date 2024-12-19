@@ -7,5 +7,4 @@ type URL struct {
 	URLCode string `bson:"url_code"`
 	LongURL string `bson:"long_url"`
 	CreatedAt int64 `bson:"created_at"`
-	ExpiresAt int64 `bson:"expires_at"`
 }
