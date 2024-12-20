@@ -17,7 +17,7 @@ import (
 type manager struct {
 	client *mongo.Client
 	redis_client *redis.Client
-	maxCacheSize int64
+	protected_redis *redis.Client
 }
 
 var Mgr Manager
@@ -25,7 +25,6 @@ var Mgr Manager
 type Manager interface {
 	Insert(*types.URL) error
 	GetOriginalURL(string) (string, error)
-	evictIfNeeded() error
 	GetAndIncCounter() (int64, error)
 }
 
@@ -64,10 +63,28 @@ func Connect() {
         DB:       0,
     })
 
+    protected_redis := redis.NewClient(&redis.Options{
+        Addr:     redisAddr,
+        Password: "",
+        DB:       1,
+    })
+
 	ctx := context.Background()
     if err := redis_client.Ping(ctx).Err(); err != nil {
 		panic(err)
 	}
 
-	Mgr = &manager{client, redis_client, 10000}
+	err = redis_client.ConfigSet(ctx, "maxmemory", "1024mb").Err()
+    if err != nil {
+        panic(err)
+    }
+
+    err = redis_client.ConfigSet(ctx, "maxmemory-policy", "allkeys-lru").Err()
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println("AllKeys-LRU eviction policy set successfully!")
+
+	Mgr = &manager{client, redis_client, protected_redis}
 }

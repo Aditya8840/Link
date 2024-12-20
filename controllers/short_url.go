@@ -27,7 +27,7 @@ func ShortURL(c *fiber.Ctx) error {
             "error": err.Error(),
         })
 	}
-	urlCode := utils.Base64Encode(count)
+	urlCode := utils.Base62Encode(count)
 	var urlObject types.URL
 
 	urlObject.CreatedAt = time.Now().Unix()

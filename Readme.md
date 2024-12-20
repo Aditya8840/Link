@@ -17,10 +17,10 @@ Link is a robust URL shortening service designed with scalability and performanc
 
 ## Key Features
 
-- Base64 encoding for generating short codes
+- Base62 encoding for generating short codes
 - Redis-based counter system for URL generation
 - Efficient caching mechanism with LRU policy
-- Cache capacity: 10K keys with LRU eviction
+- Cache capacity: 1GB with LRU eviction
 - Containerized deployment with Docker
 
 ## API Endpoints
@@ -58,8 +58,9 @@ Process flow for accessing shortened URLs:
 The service implements an efficient caching mechanism with the following characteristics:
 
 - Redis-based caching system
-- Maximum capacity of 10K keys
-- LRU (Least Recently Used) eviction policy
+- Maximum capacity of 1GB
+- All-keys LRU (Least Recently Used) eviction policy
+- Another Redis for protected keys (E.g. counter)
 - Optimized for high-performance URL retrieval
 
 ## Deployment

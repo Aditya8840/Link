@@ -1,13 +1,19 @@
 package utils
 
-import (
-	"encoding/base64"
-	"encoding/binary"
-)
+const base62Chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+func Base62Encode(num int64) string {
+	if num == 0 {
+		return "0"
+	}
 
-func Base64Encode(num int64) string {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(num))
-	return base64.StdEncoding.EncodeToString(buf)
+	encoded := ""
+
+	for num > 0 {
+		rem := num%62
+        encoded = string(base62Chars[rem]) + encoded
+		num/=62
+	}
+
+	return encoded
 }
