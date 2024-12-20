@@ -2,22 +2,21 @@ package databases
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/Aditya8840/Link/types"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/redis/go-redis/v9"
 )
 
 type manager struct {
 	client *mongo.Client
 	redis_client *redis.Client
-	ctx context.Context
-	cancel context.CancelFunc
 	maxCacheSize int64
 }
 
@@ -38,27 +37,37 @@ func Connect() {
 
 	MONGO_URI := os.Getenv("MONGO_URI")
 
-	clientOption := options.Client().ApplyURI(MONGO_URI)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	
-	
-	client, err := mongo.Connect(ctx, clientOption)
+	if MONGO_URI == "" {
+        log.Fatalf("MONGO_URI environment variable not set")
+    }
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	clientOption := options.Client().ApplyURI(MONGO_URI).SetServerAPIOptions(serverAPI)
+	client, err := mongo.Connect(context.TODO(), clientOption)
 
 	if err != nil {
 		panic(err)
 	}
 
-	redis_client := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_ADDR"),
-        Password: os.Getenv("REDIS_PASSWD"),
-        DB:       0,  // use default DB
-	})
+	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{Key: "ping", Value: 1}}).Err(); err != nil {
+	panic(err)
+	}
+	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
 
-	err = redis_client.Set(ctx, "foo", "bar", 0).Err()
-	if err != nil {
+	redisAddr := os.Getenv("REDIS_ADDR")
+    if redisAddr == "" {
+        redisAddr = "localhost:6379"
+    }
+
+    redis_client := redis.NewClient(&redis.Options{
+        Addr:     redisAddr,
+        Password: "",
+        DB:       0,
+    })
+
+	ctx := context.Background()
+    if err := redis_client.Ping(ctx).Err(); err != nil {
 		panic(err)
 	}
 
-	Mgr = &manager{client, redis_client, ctx, cancel, 10000}
+	Mgr = &manager{client, redis_client, 10000}
 }

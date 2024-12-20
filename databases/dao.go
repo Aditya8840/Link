@@ -1,6 +1,9 @@
 package databases
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/Aditya8840/Link/constant"
@@ -9,40 +12,52 @@ import (
 
 func (mgr *manager) Insert(data *types.URL) error {
 	instance := mgr.client.Database(constant.DATABASE).Collection(constant.COLLECTION_NAME)
-	_, err := instance.InsertOne(mgr.ctx, data)
+	_, err := instance.InsertOne(context.TODO(), data)
 	if err != nil {
-        return err
-    }
+		return err
+	}
 
 	err = mgr.redis_client.Set(
-		mgr.ctx,
-		data.URLCode,
-		data.LongURL,
-		48*time.Hour,
-	).Err()
+        context.TODO(),
+        data.URLCode,
+        data.LongURL,
+        48*time.Hour,
+    ).Err()
+
+	if err := mgr.evictIfNeeded(); err != nil {
+        log.Printf("Warning: Cache eviction failed: %v", err)
+    }
 	return err
 }
 
 func (mgr *manager) GetOriginalURL(code string) (string, error) {
-	longUrl, err := mgr.redis_client.Get(mgr.ctx, code).Result()
+	longUrl, err := mgr.redis_client.Get(context.TODO(), code).Result()
+	fmt.Printf("%s", longUrl)
 	if err == nil {
 		return longUrl, nil
 	}
 	instance := mgr.client.Database(constant.DATABASE).Collection(constant.COLLECTION_NAME)
-    var url types.URL
-    err = instance.FindOne(mgr.ctx, map[string]string{"url_code": code}).Decode(&url)
-    return url.LongURL, err
+	result := types.URL{}
+	err = instance.FindOne(context.TODO(), map[string]string{"url_code": code}).Decode(&result)
+	if err!= nil {
+        return "", err
+    }
+	err = mgr.redis_client.Set(context.TODO(), code, result.LongURL, 48*time.Hour).Err()
+	if err!= nil {
+        return "", err
+    }
+	return result.LongURL, err
 }
 
 func (mgr *manager) evictIfNeeded() error {
-	size, err := mgr.redis_client.DBSize(mgr.ctx).Result()
-    if err != nil {
-        return err
-    }
+	size, err := mgr.redis_client.DBSize(context.TODO()).Result()
+	if err != nil {
+		return err
+	}
 
 	if size >= mgr.maxCacheSize {
 		numToRemove := int(float64(size) * 0.2)
-		keys, err := mgr.redis_client.Keys(mgr.ctx, "*").Result()
+		keys, err := mgr.redis_client.Keys(context.TODO(), "*").Result()
 		if err != nil {
 			return err
 		}
@@ -51,7 +66,7 @@ func (mgr *manager) evictIfNeeded() error {
 			if keys[i] == constant.COUNTER_KEY_REDIS {
 				continue
 			}
-			_, err := mgr.redis_client.Del(mgr.ctx, keys[i]).Result()
+			_, err := mgr.redis_client.Del(context.TODO(), keys[i]).Result()
 			if err != nil {
 				return err
 			}
@@ -61,7 +76,7 @@ func (mgr *manager) evictIfNeeded() error {
 }
 
 func (mgr *manager) GetAndIncCounter() (int64, error) {
-	count, err := mgr.redis_client.Incr(mgr.ctx, constant.COUNTER_KEY_REDIS).Result()
+	count, err := mgr.redis_client.Incr(context.TODO(), constant.COUNTER_KEY_REDIS).Result()
 	if err != nil {
 		return 0, err
 	}
